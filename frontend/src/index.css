@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas-bg: #0f0f13;
+  --surface: #1a1a24;
+  --panel: #22222f;
+  --border: #2e2e40;
+  --accent: #6c63ff;
+  --text-primary: #e8e8f0;
+  --text-muted: #7a7a9a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--canvas-bg);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Canvas cursor styles */
+.cursor-crosshair canvas {
+  cursor: crosshair !important;
+}
+
+.cursor-grab canvas {
+  cursor: grab !important;
+}
+
+.cursor-grab canvas:active {
+  cursor: grabbing !important;
+}
+
+.cursor-text canvas {
+  cursor: text !important;
+}
+
+/* Animated gradient border */
+@keyframes borderGlow {
+
+  0%,
+  100% {
+    border-color: var(--accent);
+  }
+
+  50% {
+    border-color: var(--accent-light, #8b85ff);
+  }
+}
+
+.glow-border {
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs rounded bg-panel border border-border pointer-events-none whitespace-nowrap;
+  color: #e8e8f0;
+}
+
+/* Panel slide-in */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.25s ease;
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.25s ease;
+}
+
+.animate-fade-up {
+  animation: fadeInUp 0.2s ease;
+}
+
+/* Code snippet styling */
+.code-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: #0d0d14;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
