@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Visual Knowledge Workspace"
+version = "1.0.0"
+id = "artifacts/knowledge-workspace"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21925
+
+[services.development]
+run = "pnpm --filter @workspace/knowledge-workspace run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/knowledge-workspace", "run", "build" ]
+publicDir = "artifacts/knowledge-workspace/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21925"
+BASE_PATH = "/"

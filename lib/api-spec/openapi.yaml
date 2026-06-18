@@ -1,0 +1,937 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Visual Knowledge Workspace API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: blocks
+    description: Atomic knowledge blocks
+  - name: notes
+    description: Notes / documents
+  - name: graph
+    description: Knowledge graph
+  - name: ai
+    description: AI synthesis & study workflows
+  - name: flashcards
+    description: Flashcard decks
+  - name: mindmaps
+    description: Mind maps
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── BLOCKS ────────────────────────────────────────────────────────────────
+  /blocks:
+    get:
+      operationId: listBlocks
+      tags: [blocks]
+      summary: List all blocks
+      parameters:
+        - name: noteId
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: type
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: tag
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Block"
+    post:
+      operationId: createBlock
+      tags: [blocks]
+      summary: Create a block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
+
+  /blocks/{id}:
+    get:
+      operationId: getBlock
+      tags: [blocks]
+      summary: Get a block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Block
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
+    patch:
+      operationId: updateBlock
+      tags: [blocks]
+      summary: Update a block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
+    delete:
+      operationId: deleteBlock
+      tags: [blocks]
+      summary: Delete a block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /blocks/{id}/link:
+    post:
+      operationId: linkBlocks
+      tags: [blocks]
+      summary: Link two blocks together
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockLinkInput"
+      responses:
+        "200":
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockLink"
+
+  # ── NOTES ─────────────────────────────────────────────────────────────────
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      summary: List all notes
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: tag
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+    post:
+      operationId: createNote
+      tags: [notes]
+      summary: Create a note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+
+  /notes/{id}:
+    get:
+      operationId: getNote
+      tags: [notes]
+      summary: Get a note with its blocks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteWithBlocks"
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      summary: Update a note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      summary: Delete a note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ── GRAPH ─────────────────────────────────────────────────────────────────
+  /graph:
+    get:
+      operationId: getGraph
+      tags: [graph]
+      summary: Get the full knowledge graph (nodes + edges)
+      responses:
+        "200":
+          description: Graph data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Graph"
+
+  # ── DASHBOARD SUMMARY ─────────────────────────────────────────────────────
+  /summary:
+    get:
+      operationId: getSummary
+      tags: [notes]
+      summary: Dashboard summary stats
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  # ── AI ENDPOINTS ──────────────────────────────────────────────────────────
+  /ai/synthesize:
+    post:
+      operationId: synthesizeNote
+      tags: [ai]
+      summary: AI-synthesize a note — extract action items, suggest links, summarize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SynthesizeInput"
+      responses:
+        "200":
+          description: Synthesis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SynthesisResult"
+
+  /ai/transcribe:
+    post:
+      operationId: transcribeAudio
+      tags: [ai]
+      summary: Transcribe audio to text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscribeInput"
+      responses:
+        "200":
+          description: Transcription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscribeResult"
+
+  /ai/chat:
+    post:
+      operationId: chatWithNotes
+      tags: [ai]
+      summary: Chat with your notes (Q&A bot)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResult"
+
+  # ── FLASHCARDS ────────────────────────────────────────────────────────────
+  /flashcards:
+    get:
+      operationId: listFlashcardDecks
+      tags: [flashcards]
+      summary: List all flashcard decks
+      responses:
+        "200":
+          description: Decks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FlashcardDeck"
+    post:
+      operationId: createFlashcardDeck
+      tags: [flashcards]
+      summary: Create a flashcard deck from a note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlashcardDeckInput"
+      responses:
+        "201":
+          description: Created deck with cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckWithCards"
+
+  /flashcards/{id}:
+    get:
+      operationId: getFlashcardDeck
+      tags: [flashcards]
+      summary: Get a flashcard deck with all cards
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deck with cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckWithCards"
+    delete:
+      operationId: deleteFlashcardDeck
+      tags: [flashcards]
+      summary: Delete a flashcard deck
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /flashcards/{id}/review:
+    post:
+      operationId: reviewCard
+      tags: [flashcards]
+      summary: Record a card review result (spaced repetition)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardReviewInput"
+      responses:
+        "200":
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashCard"
+
+  # ── MIND MAPS ─────────────────────────────────────────────────────────────
+  /mindmaps:
+    get:
+      operationId: listMindMaps
+      tags: [mindmaps]
+      summary: List all mind maps
+      responses:
+        "200":
+          description: Mind maps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MindMap"
+    post:
+      operationId: createMindMap
+      tags: [mindmaps]
+      summary: Generate a mind map from a note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MindMapInput"
+      responses:
+        "201":
+          description: Created mind map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MindMap"
+
+  /mindmaps/{id}:
+    get:
+      operationId: getMindMap
+      tags: [mindmaps]
+      summary: Get a mind map
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Mind map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MindMap"
+    delete:
+      operationId: deleteMindMap
+      tags: [mindmaps]
+      summary: Delete a mind map
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    # ── BLOCK ────────────────────────────────────────────────────────────────
+    Block:
+      type: object
+      required: [id, type, content, tags, noteId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [text, voice, image, whiteboard]
+        content:
+          type: string
+        audioUrl:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        transcript:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        noteId:
+          type: ["string", "null"]
+        position:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    BlockInput:
+      type: object
+      required: [type, content]
+      properties:
+        type:
+          type: string
+          enum: [text, voice, image, whiteboard]
+        content:
+          type: string
+        audioUrl:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        transcript:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        noteId:
+          type: ["string", "null"]
+        position:
+          type: ["integer", "null"]
+
+    BlockUpdate:
+      type: object
+      properties:
+        content:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        noteId:
+          type: ["string", "null"]
+        position:
+          type: ["integer", "null"]
+        transcript:
+          type: ["string", "null"]
+
+    BlockLinkInput:
+      type: object
+      required: [targetId, relation]
+      properties:
+        targetId:
+          type: string
+        relation:
+          type: string
+
+    BlockLink:
+      type: object
+      required: [id, sourceId, targetId, relation, createdAt]
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        targetId:
+          type: string
+        relation:
+          type: string
+        createdAt:
+          type: string
+
+    # ── NOTE ─────────────────────────────────────────────────────────────────
+    Note:
+      type: object
+      required: [id, title, tags, blockCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        blockCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    NoteWithBlocks:
+      type: object
+      required: [id, title, tags, blocks, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Block"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    NoteInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+
+    NoteUpdate:
+      type: object
+      properties:
+        title:
+          type: ["string", "null"]
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+
+    # ── GRAPH ────────────────────────────────────────────────────────────────
+    GraphNode:
+      type: object
+      required: [id, label, type, size]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+        size:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        x:
+          type: ["number", "null"]
+        y:
+          type: ["number", "null"]
+
+    GraphEdge:
+      type: object
+      required: [id, source, target, relation]
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        relation:
+          type: string
+
+    Graph:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+
+    # ── DASHBOARD ─────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [totalNotes, totalBlocks, totalFlashcardDecks, totalMindMaps, recentNotes, blocksByType]
+      properties:
+        totalNotes:
+          type: integer
+        totalBlocks:
+          type: integer
+        totalFlashcardDecks:
+          type: integer
+        totalMindMaps:
+          type: integer
+        recentNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Note"
+        blocksByType:
+          type: object
+          additionalProperties:
+            type: integer
+
+    # ── AI ───────────────────────────────────────────────────────────────────
+    SynthesizeInput:
+      type: object
+      required: [noteId]
+      properties:
+        noteId:
+          type: string
+
+    SynthesisResult:
+      type: object
+      required: [summary, actionItems, suggestedLinks, keyThemes]
+      properties:
+        summary:
+          type: string
+        actionItems:
+          type: array
+          items:
+            type: string
+        suggestedLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SuggestedLink"
+        keyThemes:
+          type: array
+          items:
+            type: string
+
+    SuggestedLink:
+      type: object
+      required: [noteId, noteTitle, reason]
+      properties:
+        noteId:
+          type: string
+        noteTitle:
+          type: string
+        reason:
+          type: string
+
+    TranscribeInput:
+      type: object
+      required: [audioBase64]
+      properties:
+        audioBase64:
+          type: string
+        mimeType:
+          type: ["string", "null"]
+
+    TranscribeResult:
+      type: object
+      required: [transcript]
+      properties:
+        transcript:
+          type: string
+
+    ChatInput:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+        noteId:
+          type: ["string", "null"]
+
+    ChatResult:
+      type: object
+      required: [answer, sources]
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+
+    # ── FLASHCARDS ────────────────────────────────────────────────────────────
+    FlashcardDeck:
+      type: object
+      required: [id, title, noteId, cardCount, dueCount, createdAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        noteId:
+          type: ["string", "null"]
+        cardCount:
+          type: integer
+        dueCount:
+          type: integer
+        createdAt:
+          type: string
+
+    FlashCard:
+      type: object
+      required: [id, deckId, front, back, interval, easeFactor, dueAt, reviewCount]
+      properties:
+        id:
+          type: string
+        deckId:
+          type: string
+        front:
+          type: string
+        back:
+          type: string
+        interval:
+          type: integer
+        easeFactor:
+          type: number
+        dueAt:
+          type: string
+        reviewCount:
+          type: integer
+
+    FlashcardDeckWithCards:
+      type: object
+      required: [id, title, noteId, cards, createdAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        noteId:
+          type: ["string", "null"]
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlashCard"
+        createdAt:
+          type: string
+
+    FlashcardDeckInput:
+      type: object
+      required: [noteId]
+      properties:
+        noteId:
+          type: string
+        title:
+          type: ["string", "null"]
+
+    CardReviewInput:
+      type: object
+      required: [cardId, quality]
+      properties:
+        cardId:
+          type: string
+        quality:
+          type: integer
+          minimum: 0
+          maximum: 5
+
+    # ── MIND MAPS ─────────────────────────────────────────────────────────────
+    MindMapNode:
+      type: object
+      required: [id, label]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/MindMapNode"
+
+    MindMap:
+      type: object
+      required: [id, title, noteId, rootNode, createdAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        noteId:
+          type: ["string", "null"]
+        rootNode:
+          $ref: "#/components/schemas/MindMapNode"
+        createdAt:
+          type: string
+
+    MindMapInput:
+      type: object
+      required: [noteId]
+      properties:
+        noteId:
+          type: string
+        title:
+          type: ["string", "null"]
