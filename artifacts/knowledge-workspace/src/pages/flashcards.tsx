@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   useListFlashcardDecks,
   useCreateFlashcardDeck,
@@ -6,7 +6,7 @@ import {
   useListNotes,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Layers, Plus, Trash2, Play, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ export default function Flashcards() {
   const { data: notes } = useListNotes();
   const createDeck = useCreateFlashcardDeck();
   const deleteDeck = useDeleteFlashcardDeck();
+  const [, setLocation] = useLocation();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState("");
@@ -41,16 +42,17 @@ export default function Flashcards() {
   const handleCreate = async () => {
     if (!selectedNoteId) return;
     const note = notes?.find((n) => n.id === selectedNoteId);
-    await createDeck.mutateAsync({
+    const created = await createDeck.mutateAsync({
       data: {
         noteId: selectedNoteId,
-        title: deckTitle || (note ? `${note.title} — Flashcards` : undefined),
+        title: deckTitle || (note ? `${note.title} - Flashcards` : undefined),
       },
     });
     queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
     setIsCreateOpen(false);
     setSelectedNoteId("");
     setDeckTitle("");
+    setLocation(`/flashcards/${created.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -86,9 +88,12 @@ export default function Flashcards() {
                 <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
                   Select a Note
                 </label>
-                <Select value={selectedNoteId} onValueChange={setSelectedNoteId}>
+                <Select
+                  value={selectedNoteId}
+                  onValueChange={setSelectedNoteId}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a note…" />
+                    <SelectValue placeholder="Choose a noteâ€¦" />
                   </SelectTrigger>
                   <SelectContent>
                     {notes?.map((note) => (
@@ -109,7 +114,7 @@ export default function Flashcards() {
                   Custom Title (optional)
                 </label>
                 <Input
-                  placeholder="Leave blank to auto-generate…"
+                  placeholder="Leave blank to auto-generateâ€¦"
                   value={deckTitle}
                   onChange={(e) => setDeckTitle(e.target.value)}
                 />
@@ -117,8 +122,8 @@ export default function Flashcards() {
               {selectedNoteId && (
                 <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
                   <Sparkles className="w-3 h-3 inline mr-1 text-primary" />
-                  AI will extract key concepts and generate question-answer pairs using
-                  spaced-repetition scheduling.
+                  AI will extract key concepts and generate question-answer
+                  pairs using spaced-repetition scheduling.
                 </div>
               )}
             </div>
@@ -132,7 +137,8 @@ export default function Flashcards() {
               >
                 {createDeck.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
+                    Generatingâ€¦
                   </>
                 ) : (
                   <>
@@ -205,7 +211,9 @@ export default function Flashcards() {
                     </div>
                     <div className="w-px h-10 bg-border" />
                     <div className="text-center">
-                      <div className="text-3xl font-bold font-mono">{deck.cardCount}</div>
+                      <div className="text-3xl font-bold font-mono">
+                        {deck.cardCount}
+                      </div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">
                         Total
                       </div>
@@ -237,7 +245,11 @@ export default function Flashcards() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {Math.round(((deck.cardCount - deck.dueCount) / deck.cardCount) * 100)}% reviewed
+                        {Math.round(
+                          ((deck.cardCount - deck.dueCount) / deck.cardCount) *
+                            100,
+                        )}
+                        % reviewed
                       </p>
                     </div>
                   )}

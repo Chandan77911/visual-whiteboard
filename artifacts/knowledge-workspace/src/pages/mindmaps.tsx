@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   useListMindMaps,
   useCreateMindMap,
@@ -6,8 +6,15 @@ import {
   useListNotes,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { BrainCircuit, Plus, Trash2, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import {
+  BrainCircuit,
+  Plus,
+  Trash2,
+  ArrowRight,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,6 +40,7 @@ export default function MindMaps() {
   const { data: notes } = useListNotes();
   const createMindMap = useCreateMindMap();
   const deleteMindMap = useDeleteMindMap();
+  const [, setLocation] = useLocation();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState("");
@@ -41,16 +49,19 @@ export default function MindMaps() {
   const handleCreate = async () => {
     if (!selectedNoteId) return;
     const selectedNote = notes?.find((n) => n.id === selectedNoteId);
-    await createMindMap.mutateAsync({
+    const created = await createMindMap.mutateAsync({
       data: {
         noteId: selectedNoteId,
-        title: title || (selectedNote ? `Mind Map: ${selectedNote.title}` : undefined),
+        title:
+          title ||
+          (selectedNote ? `Mind Map: ${selectedNote.title}` : undefined),
       },
     });
     queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
     setIsCreateOpen(false);
     setSelectedNoteId("");
     setTitle("");
+    setLocation(`/mindmaps/${created.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -86,9 +97,12 @@ export default function MindMaps() {
                 <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
                   Select a Note
                 </label>
-                <Select value={selectedNoteId} onValueChange={setSelectedNoteId}>
+                <Select
+                  value={selectedNoteId}
+                  onValueChange={setSelectedNoteId}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a note to map…" />
+                    <SelectValue placeholder="Choose a note to mapâ€¦" />
                   </SelectTrigger>
                   <SelectContent>
                     {notes?.map((note) => (
@@ -109,7 +123,7 @@ export default function MindMaps() {
                   Custom Title (optional)
                 </label>
                 <Input
-                  placeholder="Leave blank to auto-generate…"
+                  placeholder="Leave blank to auto-generateâ€¦"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -117,7 +131,8 @@ export default function MindMaps() {
               {selectedNoteId && (
                 <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
                   <Sparkles className="w-3 h-3 inline mr-1 text-primary" />
-                  AI will analyze the note's blocks and generate a structured concept map.
+                  AI will analyze the note's blocks and generate a structured
+                  concept map.
                 </div>
               )}
             </div>
@@ -131,7 +146,8 @@ export default function MindMaps() {
               >
                 {createMindMap.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
+                    Generatingâ€¦
                   </>
                 ) : (
                   <>
@@ -148,7 +164,10 @@ export default function MindMaps() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-36 bg-card animate-pulse rounded-xl border border-border" />
+              <div
+                key={i}
+                className="h-36 bg-card animate-pulse rounded-xl border border-border"
+              />
             ))}
           </div>
         ) : !mindmaps || mindmaps.length === 0 ? (

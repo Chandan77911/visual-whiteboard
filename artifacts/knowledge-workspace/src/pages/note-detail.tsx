@@ -28,6 +28,88 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const MAX_IMAGE_DATA_URL_LENGTH = 90000;
+const MAX_IMAGE_DIMENSION = 1400;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () =>
+      reject(new Error("Could not read the selected image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () =>
+      reject(new Error("Could not process the selected image."));
+    image.src = src;
+  });
+}
+
+async function compressImageFile(file: File): Promise<string> {
+  const original = await readFileAsDataUrl(file);
+  if (file.type === "image/gif" || file.type === "image/svg+xml") {
+    if (original.length > MAX_IMAGE_DATA_URL_LENGTH) {
+      throw new Error(
+        "That image is too large. Please use a smaller PNG or JPG chart image.",
+      );
+    }
+    return original;
+  }
+
+  const image = await loadImage(original);
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_DIMENSION / Math.max(image.width, image.height),
+  );
+  let width = Math.max(1, Math.round(image.width * scale));
+  let height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx)
+    throw new Error("Image compression is not supported in this browser.");
+
+  const render = () => {
+    canvas.width = width;
+    canvas.height = height;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+  };
+
+  render();
+  let quality = 0.86;
+  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+  while (dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH && quality > 0.46) {
+    quality -= 0.08;
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+
+  while (
+    dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH &&
+    Math.max(width, height) > 640
+  ) {
+    width = Math.round(width * 0.85);
+    height = Math.round(height * 0.85);
+    render();
+    dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+  }
+
+  if (dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
+    throw new Error(
+      "That image is too large after compression. Crop the chart or upload a smaller image.",
+    );
+  }
+
+  return dataUrl;
+}
+
 export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -52,7 +134,9 @@ export default function NoteDetail() {
   const [newBlockText, setNewBlockText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [blockMode, setBlockMode] = useState<"text" | "voice" | "image">("text");
+  const [blockMode, setBlockMode] = useState<"text" | "voice" | "image">(
+    "text",
+  );
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,10 +163,10 @@ export default function NoteDetail() {
       {
         onSuccess: (data) => {
           queryClient.setQueryData(["/api/notes", id], (old: any) =>
-            old ? { ...old, title: data.title } : old
+            old ? { ...old, title: data.title } : old,
           );
         },
-      }
+      },
     );
   };
 
@@ -149,12 +233,11 @@ export default function NoteDetail() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const dataUrl = reader.result as string;
+    try {
+      const dataUrl = await compressImageFile(file);
       await createBlock.mutateAsync({
         data: {
           type: "image",
@@ -163,9 +246,12 @@ export default function NoteDetail() {
         },
       });
       queryClient.invalidateQueries({ queryKey: ["/api/notes", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
+    } catch (error: any) {
+      alert(error?.message ?? "Failed to upload image.");
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleSynthesize = async () => {
@@ -200,7 +286,11 @@ export default function NoteDetail() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-background/95 backdrop-blur z-10 border-b border-border px-8 py-3 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/notes")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/notes")}
+          >
             <ArrowLeft className="w-4 h-4 mr-1" /> Notes
           </Button>
           <div className="flex gap-1 ml-auto">
@@ -270,10 +360,16 @@ export default function NoteDetail() {
                       </p>
                     )}
                     {block.audioUrl && (
-                      <audio controls src={block.audioUrl} className="h-8 w-full max-w-md mt-1" />
+                      <audio
+                        controls
+                        src={block.audioUrl}
+                        className="h-8 w-full max-w-md mt-1"
+                      />
                     )}
                     {!block.transcript && !block.audioUrl && (
-                      <p className="text-muted-foreground text-sm italic">No transcript available.</p>
+                      <p className="text-muted-foreground text-sm italic">
+                        No transcript available.
+                      </p>
                     )}
                   </div>
                 )}
@@ -316,7 +412,7 @@ export default function NoteDetail() {
                     "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-medium transition-colors",
                     blockMode === mode
                       ? "bg-primary/10 text-primary border-b-2 border-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30",
                   )}
                 >
                   {mode === "text" && <Type className="w-3.5 h-3.5" />}
@@ -361,7 +457,9 @@ export default function NoteDetail() {
                 {isTranscribing ? (
                   <div className="flex items-center gap-3 text-primary">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-sm font-medium">Transcribing with AI…</span>
+                    <span className="text-sm font-medium">
+                      Transcribing with AI…
+                    </span>
                   </div>
                 ) : isRecording ? (
                   <div className="flex flex-col items-center gap-3">
@@ -376,7 +474,9 @@ export default function NoteDetail() {
                         <MicOff className="w-6 h-6" />
                       </Button>
                     </div>
-                    <p className="text-sm text-destructive font-medium animate-pulse">Recording… Click to stop</p>
+                    <p className="text-sm text-destructive font-medium animate-pulse">
+                      Recording… Click to stop
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
@@ -388,8 +488,12 @@ export default function NoteDetail() {
                     >
                       <Mic className="w-6 h-6" />
                     </Button>
-                    <p className="text-sm text-muted-foreground">Click to start recording</p>
-                    <p className="text-xs text-muted-foreground opacity-60">AI will transcribe your voice automatically</p>
+                    <p className="text-sm text-muted-foreground">
+                      Click to start recording
+                    </p>
+                    <p className="text-xs text-muted-foreground opacity-60">
+                      AI will transcribe your voice automatically
+                    </p>
                   </div>
                 )}
               </div>
@@ -403,8 +507,12 @@ export default function NoteDetail() {
                 <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors">
                   <ImageIcon className="w-7 h-7" />
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">Click to upload an image</p>
-                <p className="text-xs text-muted-foreground opacity-60">PNG, JPG, GIF, WebP supported</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Click to upload an image
+                </p>
+                <p className="text-xs text-muted-foreground opacity-60">
+                  PNG, JPG, GIF, WebP supported
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -424,7 +532,9 @@ export default function NoteDetail() {
           <Button
             className="w-full gap-2 bg-gradient-to-r from-primary to-accent text-primary-foreground font-bold shadow hover:shadow-lg transition-all"
             onClick={handleSynthesize}
-            disabled={isSynthesizing || !note.blocks || note.blocks.length === 0}
+            disabled={
+              isSynthesizing || !note.blocks || note.blocks.length === 0
+            }
           >
             {isSynthesizing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -434,7 +544,9 @@ export default function NoteDetail() {
             {isSynthesizing ? "Synthesizing…" : "Synthesize with AI"}
           </Button>
           {(!note.blocks || note.blocks.length === 0) && (
-            <p className="text-xs text-muted-foreground text-center mt-2">Add blocks first</p>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Add blocks first
+            </p>
           )}
         </div>
 
@@ -445,90 +557,100 @@ export default function NoteDetail() {
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Sparkles className="w-3 h-3 text-primary" /> AI Summary
               </h3>
-              <p className="text-sm leading-relaxed text-foreground">{note.summary}</p>
+              <p className="text-sm leading-relaxed text-foreground">
+                {note.summary}
+              </p>
             </div>
           )}
 
           {/* Key Themes from synthesis */}
-          {synthesisResult?.keyThemes && synthesisResult.keyThemes.length > 0 && (
-            <div>
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Tag className="w-3 h-3 text-primary" /> Key Themes
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {synthesisResult.keyThemes.map((theme) => (
-                  <span
-                    key={theme}
-                    className="text-xs bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full font-medium"
-                  >
-                    {theme}
-                  </span>
-                ))}
+          {synthesisResult?.keyThemes &&
+            synthesisResult.keyThemes.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Tag className="w-3 h-3 text-primary" /> Key Themes
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {synthesisResult.keyThemes.map((theme) => (
+                    <span
+                      key={theme}
+                      className="text-xs bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full font-medium"
+                    >
+                      {theme}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Stored tags */}
-          {note.tags && note.tags.length > 0 && !synthesisResult?.keyThemes?.length && (
-            <div>
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Tag className="w-3 h-3 text-primary" /> Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {note.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-sidebar-accent text-sidebar-accent-foreground px-2.5 py-1 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
+          {note.tags &&
+            note.tags.length > 0 &&
+            !synthesisResult?.keyThemes?.length && (
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Tag className="w-3 h-3 text-primary" /> Tags
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {note.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-xs bg-sidebar-accent text-sidebar-accent-foreground px-2.5 py-1 rounded-full"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Action Items */}
-          {synthesisResult?.actionItems && synthesisResult.actionItems.length > 0 && (
-            <div>
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                <CheckSquare className="w-3 h-3 text-accent" /> Action Items
-              </h3>
-              <div className="space-y-2">
-                {synthesisResult.actionItems.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2.5 text-sm">
-                    <Square className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
-                    <span className="leading-relaxed">{item}</span>
-                  </div>
-                ))}
+          {synthesisResult?.actionItems &&
+            synthesisResult.actionItems.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <CheckSquare className="w-3 h-3 text-accent" /> Action Items
+                </h3>
+                <div className="space-y-2">
+                  {synthesisResult.actionItems.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2.5 text-sm">
+                      <Square className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
+                      <span className="leading-relaxed">{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Suggested Links */}
-          {synthesisResult?.suggestedLinks && synthesisResult.suggestedLinks.length > 0 && (
-            <div>
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                <ExternalLink className="w-3 h-3 text-chart-3" /> Suggested Links
-              </h3>
-              <div className="space-y-2">
-                {synthesisResult.suggestedLinks.map((link) => (
-                  <div
-                    key={link.noteId}
-                    className="p-3 bg-sidebar-accent rounded-lg border border-sidebar-border cursor-pointer hover:border-primary/50 transition-all group"
-                    onClick={() => setLocation(`/notes/${link.noteId}`)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">
-                        {link.noteTitle}
+          {synthesisResult?.suggestedLinks &&
+            synthesisResult.suggestedLinks.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <ExternalLink className="w-3 h-3 text-chart-3" /> Suggested
+                  Links
+                </h3>
+                <div className="space-y-2">
+                  {synthesisResult.suggestedLinks.map((link) => (
+                    <div
+                      key={link.noteId}
+                      className="p-3 bg-sidebar-accent rounded-lg border border-sidebar-border cursor-pointer hover:border-primary/50 transition-all group"
+                      onClick={() => setLocation(`/notes/${link.noteId}`)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                          {link.noteTitle}
+                        </p>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {link.reason}
                       </p>
-                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{link.reason}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Block stats */}
           <div>
@@ -537,11 +659,17 @@ export default function NoteDetail() {
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {(["text", "voice", "image"] as const).map((type) => {
-                const count = note.blocks?.filter((b) => b.type === type).length ?? 0;
+                const count =
+                  note.blocks?.filter((b) => b.type === type).length ?? 0;
                 return (
-                  <div key={type} className="bg-sidebar-accent rounded-lg p-2 text-center">
+                  <div
+                    key={type}
+                    className="bg-sidebar-accent rounded-lg p-2 text-center"
+                  >
                     <div className="text-lg font-bold font-mono">{count}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize">{type}</div>
+                    <div className="text-[10px] text-muted-foreground capitalize">
+                      {type}
+                    </div>
                   </div>
                 );
               })}
